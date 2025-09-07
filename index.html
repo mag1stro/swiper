@@ -1,0 +1,265 @@
+<!DOCTYPE html>
+<html lang="ru">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width,initial-scale=1" />
+  <title>Swiper — 10 слайдов + Secret Room</title>
+  <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/swiper@11.0.5/swiper-bundle.min.css"/>
+  <script src="https://cdn.jsdelivr.net/npm/swiper@11.0.5/swiper-bundle.min.js"></script>
+  <style>
+    :root{--accent:#ff4081}
+    *{box-sizing:border-box}
+    body{margin:0;background:#000;color:#fff;font-family:Arial,Helvetica,sans-serif}
+    /* Lock screen */
+    #lockScreen{display:flex;align-items:center;justify-content:center;height:100vh;background:#0f0f11;flex-direction:column;gap:12px;padding:20px;text-align:center}
+    #lockScreen .author{font-size:1rem;color:#bfbfbf;margin:0}
+    #lockScreen h2{font-size:1.6rem;margin:0}
+    #passwordInput{width:100%;max-width:360px;padding:12px;border-radius:10px;border:0;font-size:1rem}
+    #unlockBtn{padding:11px 20px;border-radius:10px;border:0;background:var(--accent);color:#fff;cursor:pointer}
+    #error{color:#ff7b7b;display:none;margin-top:6px}
+
+    /* main swiper */
+    .swiper{width:100%;height:100vh;display:none;position:relative;overflow:hidden}
+    .swiper-wrapper{height:100%}
+    .swiper-slide{display:flex;align-items:center;justify-content:center;height:100%;position:relative}
+    .swiper-slide img{width:100%;height:100%;object-fit:cover;display:block}
+
+    /* 10th slide button (only present inside 10th slide element) */
+    .secret-btn-in-slide{
+      position:absolute;
+      left:50%;
+      top:50%;
+      transform:translate(-50%,-50%);
+      z-index:12;
+      padding:12px 18px;
+      background:rgba(0,0,0,0.6);
+      color:#fff;
+      border:2px solid rgba(255,255,255,0.12);
+      border-radius:10px;
+      cursor:pointer;
+      font-weight:700;
+      backdrop-filter: blur(4px);
+    }
+
+    .watermark{
+      position:absolute;
+      right:18px;
+      bottom:14px;
+      background:rgba(0,0,0,0.38);
+      color:rgba(255,255,255,0.92);
+      padding:6px 10px;
+      border-radius:8px;
+      font-size:0.95rem;
+      z-index:20;
+      pointer-events:none;
+      user-select:none;
+    }
+
+    /* modal */
+    .modal{
+      position:fixed;inset:0;display:none;align-items:center;justify-content:center;background:rgba(0,0,0,0.72);z-index:100;padding:20px
+    }
+    .modal-card{width:100%;max-width:480px;background:#0b0b0b;padding:18px;border-radius:12px;border:1px solid rgba(255,255,255,0.04);text-align:center;color:#fff}
+    .modal-card h3{margin:0 0 8px}
+    .modal-card p{margin:0 0 12px;color:#ffbaea}
+    .modal-card .controls{display:flex;gap:8px;justify-content:center;margin-top:10px}
+    .modal-card input[type="text"]{width:100%;padding:10px;border-radius:8px;border:0;background:#111;color:#fff}
+
+    .btn{padding:10px 14px;border-radius:8px;border:0;cursor:pointer;background:var(--accent);color:#fff}
+    .btn.ghost{background:transparent;border:1px solid rgba(255,255,255,0.08)}
+
+    /* secret room (single image, slightly "отдалённое") */
+    .secret-room{
+      position:fixed;inset:0;display:none;align-items:center;justify-content:center;background:rgba(0,0,0,0.9);z-index:150;padding:20px
+    }
+    .secret-card{width:100%;max-width:1100px;display:flex;align-items:center;justify-content:center;gap:12px;flex-direction:column}
+    .secret-card img{
+      width:75%;
+      max-width:1000px;
+      height:auto;
+      object-fit:contain;
+      transform:scale(0.88); /* чуть отдалённый/меньше */
+      transition:transform .4s ease;
+      border-radius:8px;
+      box-shadow:0 8px 30px rgba(0,0,0,0.6);
+      background:#111;
+    }
+    .secret-close{position:absolute;right:18px;top:18px;padding:8px 10px;border-radius:8px;background:rgba(255,255,255,0.06);border:1px solid rgba(255,255,255,0.06);cursor:pointer;color:#fff}
+
+    @media (max-width:900px){
+      .secret-card img{width:90%;transform:scale(0.92)}
+      .secret-btn-in-slide{padding:10px 14px;font-size:0.95rem}
+    }
+    @media (max-width:480px){
+      #lockScreen h2{font-size:1.2rem}
+      #passwordInput{padding:10px}
+      .secret-btn-in-slide{padding:8px 12px;font-size:0.9rem}
+      .secret-card img{width:95%}
+    }
+  </style>
+</head>
+<body>
+
+  <div id="lockScreen" aria-live="polite">
+    <p class="author">автор: mag1stro</p>
+    <h2>Введите пароль</h2>
+    <input id="passwordInput" type="password" placeholder="Пароль" aria-label="Пароль"/>
+    <div style="margin-top:10px">
+      <button id="unlockBtn" class="btn" onclick="unlock()">Войти</button>
+    </div>
+    <p id="error" style="color:#ff7b7b;display:none;margin-top:8px">Неверный пароль</p>
+  </div>
+
+  <div class="swiper" id="mainSlider" aria-hidden="true">
+    <div class="swiper-wrapper">
+      <div class="swiper-slide"><img src="https://picsum.photos/id/1015/1920/1080" alt="Фото 1"></div>
+<div class="swiper-slide"><img src="https://picsum.photos/id/1022/1920/1080" alt="Фото 2"></div>
+<div class="swiper-slide"><img src="https://picsum.photos/id/1018/1920/1080" alt="Фото 3"></div>
+<div class="swiper-slide"><img src="https://picsum.photos/id/1020/1920/1080" alt="Фото 4"></div>
+<div class="swiper-slide"><img src="https://picsum.photos/id/1024/1920/1080" alt="Фото 5"></div>
+<div class="swiper-slide"><img src="https://picsum.photos/id/1025/1920/1080" alt="Фото 6"></div>
+<div class="swiper-slide"><img src="https://picsum.photos/id/1027/1920/1080" alt="Фото 7"></div>
+<div class="swiper-slide"><img src="https://picsum.photos/id/1031/1920/1080" alt="Фото 8"></div>
+<div class="swiper-slide"><img src="https://picsum.photos/id/1033/1920/1080" alt="Фото 9"></div>
+
+      <div class="swiper-slide"><img src="./photo_2025-09-07_13-50-55.jpg" alt="Фото 10"></div>
+      <div class="swiper-slide"><img src="./photo_2025-09-07_13-50-57.jpg" alt="Фото 11"></div>
+
+      <!-- 12-й слайд: на нём кнопка "Секретная комната" (только здесь) -->
+      <div class="swiper-slide" style="position:relative">
+        <img src="./бррбррпатапим.jpg" alt="Фото 12">
+        <button class="secret-btn-in-slide" type="button">Секретная комната</button>
+      </div>
+    </div>
+
+    <div class="swiper-pagination" aria-hidden="false"></div>
+    <div class="swiper-button-prev" aria-label="Previous slide"></div>
+    <div class="swiper-button-next" aria-label="Next slide"></div>
+
+    <div class="watermark">автор: mag1stro</div>
+  </div>
+
+  <!-- Модалки для секретной комнаты -->
+  <div class="modal" id="modalStep1" role="dialog" aria-modal="true">
+    <div class="modal-card">
+      <h3>Секретный код</h3>
+      <p style="font-weight:700;color:#ffb3d6">BRR BRR Patapim</p>
+      <div class="controls">
+        <button class="btn ghost" onclick="closeModal1()">Отмена</button>
+        <button class="btn" onclick="openStep2()">Готов</button>
+      </div>
+    </div>
+  </div>
+
+  <div class="modal" id="modalStep2" role="dialog" aria-modal="true">
+    <div class="modal-card">
+      <h3>Введите секретный код</h3>
+      <input id="secretInput" type="text" placeholder="Секретный код" aria-label="Секретный код">
+      <div class="controls">
+        <button class="btn ghost" onclick="closeModal2()">Отмена</button>
+        <button class="btn" onclick="checkSecret()">Войти</button>
+      </div>
+      <p id="secretError" style="color:#ff7b7b;display:none;margin-top:8px">Неверный код</p>
+    </div>
+  </div>
+
+  <!-- Секретная комната: один снимок, чуть отдалённый -->
+  <div class="secret-room" id="secretRoom" aria-hidden="true">
+    <div class="secret-card">
+      <button class="secret-close" onclick="closeSecret()">✕</button>
+      <img id="secretImage" src="./photo_2025-09-07_13-53-24.jpg" alt="Секретное фото">
+    </div>
+  </div>
+
+  <script>
+    const LOCK_PASS = "59413";
+    const SECRET_PHRASE = "brr brr patapim"; // сравнение в нижнем регистре
+    const lockScreen = document.getElementById('lockScreen');
+    const mainSliderEl = document.getElementById('mainSlider');
+    const modal1 = document.getElementById('modalStep1');
+    const modal2 = document.getElementById('modalStep2');
+    const secretRoom = document.getElementById('secretRoom');
+    const secretError = document.getElementById('secretError');
+    const secretInput = document.getElementById('secretInput');
+    let mainSwiper = null;
+
+    function unlock(){
+      const v = (document.getElementById('passwordInput').value || "").trim();
+      if(v === LOCK_PASS){
+        document.getElementById('error').style.display = "none";
+        lockScreen.style.display = "none";
+        mainSliderEl.style.display = "block";
+        mainSliderEl.setAttribute('aria-hidden','false');
+        // инициализация swiper
+        mainSwiper = new Swiper('#mainSlider', {
+          loop: true,
+          autoplay: { delay: 5000, disableOnInteraction: false, pauseOnMouseEnter: true },
+          pagination: { el: '.swiper-pagination', clickable: true },
+          navigation: { nextEl: '.swiper-button-next', prevEl: '.swiper-button-prev' },
+          keyboard: { enabled: true, onlyInViewport: true }
+        });
+        // подключаем делегированное событие для кнопки в 10-м слайде и его клонов
+        mainSliderEl.addEventListener('click', (e) => {
+          const btn = e.target.closest('.secret-btn-in-slide');
+          if(btn) openModal1();
+        });
+      } else {
+        document.getElementById('error').style.display = "block";
+      }
+    }
+
+    function openModal1(){
+      modal1.style.display = "flex";
+    }
+    function closeModal1(){
+      modal1.style.display = "none";
+    }
+    function openStep2(){
+      modal1.style.display = "none";
+      secretError.style.display = "none";
+      secretInput.value = "";
+      modal2.style.display = "flex";
+      setTimeout(()=> secretInput.focus(), 120);
+    }
+    function closeModal2(){
+      modal2.style.display = "none";
+    }
+
+    function checkSecret(){
+      const val = (secretInput.value || "").trim().toLowerCase();
+      if(val === SECRET_PHRASE){
+        // закрываем все модалки и показываем секретную комнату (одна картинка)
+        modal2.style.display = "none";
+        modal1.style.display = "none";
+        secretError.style.display = "none";
+        // остановим автопроигрывание основного слайдера и спрячем его
+        if(mainSwiper){
+          try{ mainSwiper.autoplay.stop(); }catch(e){}
+        }
+        mainSliderEl.style.display = "none";
+        secretRoom.style.display = "flex";
+        secretRoom.setAttribute('aria-hidden','false');
+      } else {
+        secretError.style.display = "block";
+      }
+    }
+
+    function closeSecret(){
+      secretRoom.style.display = "none";
+      secretRoom.setAttribute('aria-hidden','true');
+      // вернуть основной слайдер и запустить autoplay заново
+      mainSliderEl.style.display = "block";
+      if(mainSwiper){
+        try{ mainSwiper.autoplay.start(); }catch(e){}
+      }
+    }
+
+    // Enter-to-unlock and Enter in secret modal
+    document.getElementById('passwordInput').addEventListener('keyup', (e) => { if(e.key === 'Enter') unlock(); });
+    secretInput.addEventListener('keyup', (e) => { if(e.key === 'Enter') checkSecret(); });
+  </script>
+</body>
+</html>
+
+
+
